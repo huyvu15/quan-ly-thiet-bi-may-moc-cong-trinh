@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom';
 import {
   BarChart,
   Bar,
-  LineChart,
+  AreaChart,
+  Area,
+  ComposedChart,
   Line,
   PieChart,
   Pie,
@@ -13,7 +15,9 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
+  RadialBarChart,
+  RadialBar
 } from 'recharts';
 import api from '../services/api';
 import './Dashboard.css';
@@ -36,7 +40,7 @@ const Dashboard = () => {
   const [maintenanceCostByType, setMaintenanceCostByType] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const COLORS = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#00f2fe', '#43e97b', '#fa709a', '#fee140', '#30cfd0', '#a8edea'];
+  const COLORS = ['#11998e', '#38ef7d', '#14b8a6', '#0ea5e9', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4'];
 
   useEffect(() => {
     fetchStats();
@@ -212,12 +216,12 @@ const Dashboard = () => {
       </div>
 
       <div className="charts-grid">
-        {/* Chart 1: Bảo trì và phân công theo tháng */}
+        {/* Chart 1: Area Chart - Bảo trì và phân công theo tháng */}
         <div className="chart-card">
           <h3>Bảo Trì & Phân Công Theo Tháng</h3>
           {maintenanceByMonth.length > 0 || assignmentsByMonth.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={(() => {
+              <AreaChart data={(() => {
                 const allMonths = new Set([
                   ...maintenanceByMonth.map(m => m.month),
                   ...assignmentsByMonth.map(a => a.month)
@@ -244,42 +248,106 @@ const Dashboard = () => {
                     'Phân Công': item.assignments,
                   }));
               })()}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
+                <defs>
+                  <linearGradient id="colorMaintenance" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#11998e" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#11998e" stopOpacity={0.1}/>
+                  </linearGradient>
+                  <linearGradient id="colorAssignments" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#38ef7d" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#38ef7d" stopOpacity={0.1}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="month" stroke="#64748b" />
+                <YAxis stroke="#64748b" />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+                  }} 
+                />
                 <Legend />
-                <Line type="monotone" dataKey="Bảo Trì" stroke="#667eea" strokeWidth={2} />
-                <Line type="monotone" dataKey="Phân Công" stroke="#764ba2" strokeWidth={2} />
-              </LineChart>
+                <Area type="monotone" dataKey="Bảo Trì" stroke="#11998e" fillOpacity={1} fill="url(#colorMaintenance)" />
+                <Area type="monotone" dataKey="Phân Công" stroke="#38ef7d" fillOpacity={1} fill="url(#colorAssignments)" />
+              </AreaChart>
             </ResponsiveContainer>
           ) : (
             <div className="chart-empty">Chưa có dữ liệu</div>
           )}
         </div>
 
-        {/* Chart 2: Chi phí bảo trì theo tháng */}
+        {/* Chart 2: Composed Chart - Chi phí và số lượng bảo trì */}
         <div className="chart-card">
-          <h3>Chi Phí Bảo Trì Theo Tháng</h3>
+          <h3>Chi Phí & Số Lượng Bảo Trì</h3>
           {maintenanceByMonth.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={maintenanceByMonth.map(item => ({
+              <ComposedChart data={maintenanceByMonth.map(item => ({
                 month: formatMonth(item.month),
                 'Chi phí (triệu VNĐ)': item.total_cost / 1000000 || 0,
+                'Số lượng': item.count || 0,
               }))}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip formatter={(value) => `${formatCurrency(value * 1000000)} đ`} />
-                <Bar dataKey="Chi phí (triệu VNĐ)" fill="#667eea" />
-              </BarChart>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="month" stroke="#64748b" />
+                <YAxis yAxisId="left" stroke="#64748b" />
+                <YAxis yAxisId="right" orientation="right" stroke="#64748b" />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+                  }}
+                  formatter={(value, name) => {
+                    if (name === 'Chi phí (triệu VNĐ)') {
+                      return [`${formatCurrency(value * 1000000)} đ`, name];
+                    }
+                    return [value, name];
+                  }}
+                />
+                <Legend />
+                <Bar yAxisId="left" dataKey="Chi phí (triệu VNĐ)" fill="#11998e" radius={[8, 8, 0, 0]} />
+                <Line yAxisId="right" type="monotone" dataKey="Số lượng" stroke="#38ef7d" strokeWidth={3} dot={{ fill: '#38ef7d', r: 5 }} />
+              </ComposedChart>
             </ResponsiveContainer>
           ) : (
             <div className="chart-empty">Chưa có dữ liệu</div>
           )}
         </div>
 
-        {/* Chart 3: Máy móc theo loại */}
+        {/* Chart 3: Radial Bar Chart - Máy móc theo trạng thái */}
+        <div className="chart-card">
+          <h3>Máy Móc Theo Trạng Thái</h3>
+          {machinesByStatus.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <RadialBarChart cx="50%" cy="50%" innerRadius="40%" outerRadius="80%" data={machinesByStatus.map((item, index) => ({
+                name: getStatusLabel(item.status),
+                value: item.count,
+                fill: COLORS[index % COLORS.length]
+              }))}>
+                <RadialBar dataKey="value" cornerRadius={10} />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+                  }}
+                />
+                <Legend 
+                  iconSize={12}
+                  wrapperStyle={{ paddingTop: '20px' }}
+                />
+              </RadialBarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="chart-empty">Chưa có dữ liệu</div>
+          )}
+        </div>
+
+        {/* Chart 4: Pie Chart - Máy móc theo loại */}
         <div className="chart-card">
           <h3>Phân Bố Máy Móc Theo Loại</h3>
           {machinesByCategory.length > 0 ? (
@@ -291,7 +359,7 @@ const Dashboard = () => {
                   cy="50%"
                   labelLine={false}
                   label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
+                  outerRadius={90}
                   fill="#8884d8"
                   dataKey="count"
                 >
@@ -299,7 +367,14 @@ const Dashboard = () => {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+                  }}
+                />
               </PieChart>
             </ResponsiveContainer>
           ) : (
@@ -307,48 +382,30 @@ const Dashboard = () => {
           )}
         </div>
 
-        {/* Chart 4: Máy móc theo trạng thái */}
-        <div className="chart-card">
-          <h3>Máy Móc Theo Trạng Thái</h3>
-          {machinesByStatus.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={machinesByStatus.map(item => ({
-                    ...item,
-                    name: getStatusLabel(item.status)
-                  }))}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, count }) => `${name}: ${count}`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="count"
-                >
-                  {machinesByStatus.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="chart-empty">Chưa có dữ liệu</div>
-          )}
-        </div>
-
-        {/* Chart 5: Máy móc theo công trình */}
+        {/* Chart 5: Bar Chart với gradient - Máy móc theo công trình */}
         <div className="chart-card">
           <h3>Máy Móc Theo Công Trình</h3>
           {machinesByProject.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={machinesByProject}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="project_name" angle={-45} textAnchor="end" height={100} />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="machine_count" fill="#43e97b" name="Số máy móc" />
+                <defs>
+                  <linearGradient id="colorProject" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#11998e" stopOpacity={0.9}/>
+                    <stop offset="95%" stopColor="#38ef7d" stopOpacity={0.9}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="project_name" angle={-45} textAnchor="end" height={100} stroke="#64748b" />
+                <YAxis stroke="#64748b" />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+                  }}
+                />
+                <Bar dataKey="machine_count" fill="url(#colorProject)" name="Số máy móc" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -356,17 +413,30 @@ const Dashboard = () => {
           )}
         </div>
 
-        {/* Chart 6: Top máy móc được sử dụng nhiều nhất */}
+        {/* Chart 6: Horizontal Bar Chart - Top máy móc */}
         <div className="chart-card">
           <h3>Top 10 Máy Móc Được Sử Dụng Nhiều Nhất</h3>
           {topMachines.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={topMachines.slice(0, 10)} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis dataKey="name" type="category" width={150} />
-                <Tooltip />
-                <Bar dataKey="assignment_count" fill="#fa709a" name="Số lần phân công" />
+                <defs>
+                  <linearGradient id="colorTop" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.9}/>
+                    <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0.9}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis type="number" stroke="#64748b" />
+                <YAxis dataKey="name" type="category" width={150} stroke="#64748b" />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+                  }}
+                />
+                <Bar dataKey="assignment_count" fill="url(#colorTop)" name="Số lần phân công" radius={[0, 8, 8, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -374,7 +444,7 @@ const Dashboard = () => {
           )}
         </div>
 
-        {/* Chart 7: Chi phí bảo trì theo loại */}
+        {/* Chart 7: Stacked Bar Chart - Chi phí bảo trì theo loại */}
         <div className="chart-card">
           <h3>Chi Phí Bảo Trì Theo Loại</h3>
           {maintenanceCostByType.length > 0 ? (
@@ -383,11 +453,25 @@ const Dashboard = () => {
                 ...item,
                 'Chi phí (triệu VNĐ)': item.total_cost / 1000000 || 0
               }))}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="maintenance_type" angle={-45} textAnchor="end" height={100} />
-                <YAxis />
-                <Tooltip formatter={(value) => `${formatCurrency(value * 1000000)} đ`} />
-                <Bar dataKey="Chi phí (triệu VNĐ)" fill="#30cfd0" />
+                <defs>
+                  <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.9}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.9}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="maintenance_type" angle={-45} textAnchor="end" height={100} stroke="#64748b" />
+                <YAxis stroke="#64748b" />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+                  }}
+                  formatter={(value) => `${formatCurrency(value * 1000000)} đ`}
+                />
+                <Bar dataKey="Chi phí (triệu VNĐ)" fill="url(#colorCost)" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -400,4 +484,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
